@@ -102,6 +102,32 @@ class MainWindow(QMainWindow):
                 return card_number
         return None
 
+    def graph(self) -> None:
+        """
+            построение графика статистики поиска номера карты
+        :return: None
+        """
+        self.type = 0
+        d = {
+            'pools': [],
+            'time': []
+        }
+        for i in range(10):
+            start_time = time.time()
+            dict = self.enum_card_number()
+            card_number = dict['card_number']
+            if card_number:
+                d['pools'].append(dict['pools'])
+                d['time'].append(float(time.time() - start_time))
+        self.type = 1
+        # диаграмма
+        fig = plt.figure(figsize=(30, 5))
+        plt.bar(d['pools'], d['time'], color='gold', width=0.05)
+        plt.xlabel('Количество процессов')
+        plt.ylabel('Время поиска')
+        plt.title('График статистики (поиска коллизий)')
+        plt.show()
+
 
 if __name__ == '__main__':
     app = QApplication([])
