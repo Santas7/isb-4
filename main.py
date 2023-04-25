@@ -128,6 +128,20 @@ class MainWindow(QMainWindow):
         plt.title('График статистики (поиска коллизий)')
         plt.show()
 
+        def luna(self, card_number: str) -> bool:
+            """
+                проверка номера карты по алгоритму Луна
+            :param self:
+            :param card_number:
+            :return: bool
+            """
+            card_numbers = list(map(int, card_number))[::-1]
+            for i in range(1, len(card_numbers), 2):
+                card_numbers[i] *= 2
+                if card_numbers[i] > 9:
+                    card_numbers[i] = card_numbers[i] % 10 + card_numbers[i] // 10
+            return sum(card_numbers) % 10 == 0
+
 
 if __name__ == '__main__':
     app = QApplication([])
