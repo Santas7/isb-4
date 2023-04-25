@@ -1,18 +1,34 @@
+import multiprocessing
 import hashlib
 import time
-import random
-from multiprocessing import Pool
 import matplotlib.pyplot as plt
+from tqdm import tqdm
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel
+from PyQt6.QtCore import QSize
+from PyQt6 import QtWidgets
 
-
-OPTIONS = {
-    'hash': '754a917a9c82f5247412006a5abe1c0eb76e1007',
-    'payment_system': 'Mastercard',
-    'card_type': 'Кредитная',
-    'bank': 'ВТБ',
-    'last_digits': '0758',
-    'hash_function': 'sha1'
-}
 
 if __name__ == '__main__':
-    pass
+    app = QApplication([])
+    window = MainWindow()
+    app.setStyle('Fusion')
+    app.setStyleSheet('''
+        QMainWindow {
+            background-color: #06db4d;
+        }
+
+        QPushButton {
+            background-color: #575757;
+            color: #fff;
+            border: 1px solid #575757;
+            border-radius: 15px;
+            padding: 5px 10px;
+        }
+
+        QPushButton:hover {
+            background-color: #fff;
+            color: #575757;   
+        }
+        ''')
+
+    app.exec()
