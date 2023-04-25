@@ -142,6 +142,12 @@ class MainWindow(QMainWindow):
                     card_numbers[i] = card_numbers[i] % 10 + card_numbers[i] // 10
             return sum(card_numbers) % 10 == 0
 
+        def exit(self) -> None:
+            """
+                закрытие программы
+            :return: None
+            """
+            self.close()
 
 if __name__ == '__main__':
     app = QApplication([])
