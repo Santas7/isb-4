@@ -149,6 +149,21 @@ class MainWindow(QMainWindow):
             """
             self.close()
 
+
+class InfoWindow(QtWidgets.QDialog):
+    """
+        класс информационного окна
+    """
+    def __init__(self, parent=None, card_number: str = None, bank: str = None, type_card: str = None, payment_system: str = None, start_time: float = None, pools: int = None):
+        super(InfoWindow, self).__init__(parent)
+        self.setFixedSize(QSize(400, 300))
+        self.setWindowTitle("Информационное окно")
+        self.label = QLabel(self)
+        self.label.setText(f"Результат поиска номера карты: \nНомер карты: {card_number}\nБанк: {bank}\nТип карты: {type_card}\nПлатежная система: {payment_system}\nВремя поиска: {time.time() - start_time} \nКоличество процессоров: {pools}\n")
+        self.label.move(50, 50)
+        self.label.adjustSize()
+        self.show()
+
 if __name__ == '__main__':
     app = QApplication([])
     window = MainWindow()
@@ -171,5 +186,4 @@ if __name__ == '__main__':
             color: #575757;   
         }
         ''')
-
     app.exec()
