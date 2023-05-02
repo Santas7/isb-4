@@ -1,6 +1,6 @@
 import time
 import matplotlib.pyplot as plt
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QLineEdit
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QLineEdit, QMessageBox, QProgressBar
 from PyQt6.QtCore import QSize
 from PyQt6 import QtWidgets
 import card
@@ -23,6 +23,14 @@ class MainWindow(QMainWindow):
         self.label_title.adjustSize()
         self.card = card.Card()
         self.card_number = None
+
+        self.progress = QProgressBar(self)
+        self.progress.setGeometry(50, 92, 450, 20)
+        self.progress.setMaximum(100)
+        self.progress.setMinimum(0)
+        self.progress.setValue(0)
+        self.progress.show()
+
         self.btn_find_card = self.add_button("💳Подбор номера карты", 450, 50, 50, 120)
         self.btn_graph = self.add_button("📊График статистики (поиска коллизий)", 450, 50, 50, 180)
         self.btn_luna = self.add_button("✅Проверка номера карты по алгоритму Луна", 450, 50, 50, 240)
@@ -58,11 +66,19 @@ class MainWindow(QMainWindow):
         delta = end_time - start_time
         self.card_number = dict['card_number']
         if self.card_number:
-            info_window = InfoWindow(self, self.card_number, "ВТБ", "Кредитная карта", "Mastercard",
-                                          delta, dict['pools'])
-            info_window.show()
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("Информационное окно")
+            dlg.setText(f"Результат поиска номера карты: \nНомер карты: {self.card_number}\nБанк: ВТБ\nТип карты: Кредитная\nПлатежная система: VISA/MasterCard\nВремя поиска: {delta}s \nКоличество процессоров: {dict['pools']}\n")
+            button = dlg.exec()
+            if button == QMessageBox.StandardButton.Ok:
+                print("OK!")
         else:
-            logger.info("Номер карты не найден")
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("Информационное окно")
+            dlg.setText("Номер карты не найден!")
+            button = dlg.exec()
+            if button == QMessageBox.StandardButton.Ok:
+                print("OK!")
 
     def luna(self) -> None:
         """
@@ -70,11 +86,19 @@ class MainWindow(QMainWindow):
         :return: None
         """
         if self.card.luna(self.card_number):
-            info_window = InfoWindow2(self, "Номер карты прошел проверку по алгоритму Луна")
-            info_window.show()
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("Информационное окно")
+            dlg.setText("Номер карты прошел проверку по алгоритму Луна")
+            button = dlg.exec()
+            if button == QMessageBox.StandardButton.Ok:
+                print("OK!")
         else:
-            info_window = InfoWindow2(self, "Номер карты не прошел проверку по алгоритму Луна")
-            info_window.show()
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("Информационное окно")
+            dlg.setText("Номер карты не прошел проверку по алгоритму Луна")
+            button = dlg.exec()
+            if button == QMessageBox.StandardButton.Ok:
+                print("OK!")
 
     def set_pools_and_go_to_graph(self):
         """
@@ -95,7 +119,7 @@ class MainWindow(QMainWindow):
         }
         for i in range(cores):
             start_time = time.perf_counter()
-            self.card.set_cores(i + 1)
+            self.card.cores = i + 1
             dict = self.card.enum_card_number()
             end_time = time.perf_counter()
             delta = end_time - start_time
@@ -118,46 +142,16 @@ class MainWindow(QMainWindow):
         self.close()
 
 
-class InfoWindow(QtWidgets.QDialog):
-    """
-        класс информационного окна для номера карты
-    """
-    def __init__(self, parent=None, card_number: str = None, bank: str = None, type_card: str = None, payment_system: str = None, time: float = None, pools: int = None):
-        super(InfoWindow, self).__init__(parent)
-        self.setFixedSize(QSize(400, 300))
-        self.setWindowTitle("Информационное окно")
-        self.label = QLabel(self)
-        self.label.setText(f"Результат поиска номера карты: \nНомер карты: {card_number}\nБанк: {bank}\nТип карты: {type_card}\nПлатежная система: {payment_system}\nВремя поиска: {time} \nКоличество процессоров: {pools}\n")
-        self.label.move(50, 50)
-        self.label.adjustSize()
-        self.show()
-
-
-class InfoWindow2(QtWidgets.QDialog):
-    """
-        класс информационного окно
-    """
-    def __init__(self, parent=None, message: str = None):
-        super(InfoWindow2, self).__init__(parent)
-        self.setFixedSize(QSize(400, 300))
-        self.setWindowTitle("Информационное окно")
-        self.label = QLabel(self)
-        self.label.setText(f"{message}")
-        self.label.move(50, 50)
-        self.label.adjustSize()
-        self.show()
-
-
 class InputWindow(QtWidgets.QDialog):
     """
-        класс окна ввода количества процессоров
+        класс окна ввода количества процессов
     """
     def __init__(self, parent=None):
         super(InputWindow, self).__init__(parent)
         self.setFixedSize(QSize(400, 300))
-        self.setWindowTitle("Ввод кол-ва процессоров")
+        self.setWindowTitle("Ввод кол-ва процессов")
         self.label = QLabel(self)
-        self.label.setText("Введите количество процессоров:")
+        self.label.setText("Введите количество процессов:")
         self.label.move(50, 50)
         self.label.adjustSize()
         self.textbox = QLineEdit(self)
@@ -197,6 +191,14 @@ if __name__ == '__main__':
         QPushButton:hover {
             background-color: #fff;
             color: #575757;   
+        }
+        
+        QProgressBar {
+            border: 1px solid #575757;
+            border-radius: 5px;
+            background-color: #fff;
+            color: #575757;
+            text-align: center;
         }
         ''')
     app.exec()

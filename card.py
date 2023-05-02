@@ -1,7 +1,6 @@
 import multiprocessing
 import hashlib
 import logging
-from tqdm import tqdm
 
 
 logger = logging.getLogger()
@@ -17,24 +16,15 @@ LATER_NUM = "0758"
 
 class Card:
     def __init__(self) -> None:
-        self.pools = 10
         self.cores = multiprocessing.cpu_count()
-
-    def set_cores(self, cores: int) -> None:
-        """
-                    установка количества ядер процессора
-                :param cores:
-                :return: None
-                """
-        self.cores = cores
 
     @staticmethod
     def check_card_number(card_number_) -> str:
         """
-                    проверка номера карты на соответствие хешу и бину карты
-                :param card_number_:
-                :return: str
-                """
+            проверка номера карты на соответствие хешу и бину карты
+        :param card_number_:
+        :return: str
+        """
         global BINS, HASH, LATER_NUM
         for card_bin in BINS:
             card_number = f'{card_bin}{card_number_:06d}{LATER_NUM}'
@@ -44,11 +34,11 @@ class Card:
 
     def enum_card_number(self) -> dict:
         """
-                    перебор номера карты с помощью многопроцессорной обработки данных и возврат номера карты
-                :return: dict
-                """
+            перебор номера карты с помощью многопроцессорной обработки данных и возврат номера карты
+        :return: dict
+        """
         with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as p:
-            for result in p.map(self.check_card_number, tqdm(range(1000000), ncols=120)):
+            for result in p.map(self.check_card_number, range(1000000)):
                 if result:
                     p.terminate()
                     return {'card_number': result, 'pools': p._processes}
@@ -56,10 +46,10 @@ class Card:
 
     def luna(self, card_number) -> bool:
         """
-                    проверка номера карты по алгоритму Луна
-                :param self:
-                :return: bool
-                """
+            проверка номера карты по алгоритму Луна
+        :param self:
+        :return: bool
+        """
         try:
             card_numbers = list(map(int, card_number))
             card_numbers = card_numbers[::-1]
