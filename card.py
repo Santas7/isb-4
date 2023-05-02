@@ -60,12 +60,12 @@ class Card:
                 :return: bool
                 """
         try:
-            card_numbers = [int(digit) for digit in card_number][::-1]
+            card_numbers = list(map(int, card_number))
+            card_numbers = card_numbers[::-1]
             for i in range(1, len(card_numbers), 2):
                 card_numbers[i] *= 2
                 if card_numbers[i] > 9:
                     card_numbers[i] = card_numbers[i] % 10 + card_numbers[i] // 10
-            logger.info(f'card_number: {card_number}, luna: {sum(card_numbers) % 10 == 0}')
             return sum(card_numbers) % 10 == 0
         except Exception as e:
             logger.warning(e)

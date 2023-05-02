@@ -29,7 +29,7 @@ class MainWindow(QMainWindow):
         self.btn_exit = self.add_button("📛Выход", 450, 50, 50, 300)
         self.btn_find_card.clicked.connect(self.find_card)
         self.btn_graph.clicked.connect(self.graph)
-        self.btn_luna.clicked.connect(lambda x: self.card.luna(self.card_number))
+        self.btn_luna.clicked.connect(self.luna)
         self.btn_exit.clicked.connect(self.close)
         self.show()
 
@@ -63,6 +63,16 @@ class MainWindow(QMainWindow):
             self.info_window.show()
         else:
             logger.info("Номер карты не найден")
+
+    def luna(self) -> None:
+        """
+            проверка номера карты по алгоритму Луна
+        :return: None
+        """
+        if self.card.luna(self.card_number):
+            logger.info("Номер карты прошел проверку по алгоритму Луна")
+        else:
+            logger.info("Номер карты не прошел проверку по алгоритму Луна")
 
     def graph(self) -> None:
         """
