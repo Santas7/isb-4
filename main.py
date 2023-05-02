@@ -1,11 +1,14 @@
-import multiprocessing
-import hashlib
 import time
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QVBoxLayout, QLineEdit
 from PyQt6.QtCore import QSize
 from PyQt6 import QtWidgets
+import card
+import logging
+
+
+logger = logging.getLogger()
+logger.setLevel('INFO')
 
 
 class MainWindow(QMainWindow):
@@ -13,29 +16,21 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Кредитная карта")
         self.setFixedSize(QSize(550, 400))
-
-        # заголовок программы
         self.label_title = QLabel(self)
-        self.label_title.setText("Кредитная карта") # заголовок
-        self.label_title.move(50, 50) # положение заголовка
-        self.label_title.setStyleSheet("font-size: 30px;") # размер шрифта
-        self.label_title.adjustSize() # автоматическое изменение размера шрифта
-        self.pools = 0 # количество процессов
-        self.type = 1 # тип поиска (1 - cpu_count(), 0 - для нестандартного количества процессов 1,2,3..)
+        self.label_title.setText("Кредитная карта")
+        self.label_title.move(50, 50)
+        self.label_title.setStyleSheet("font-size: 30px;")
+        self.label_title.adjustSize()
+        self.card = card.Card()
         self.card_number = None
-
-        # кнопки
         self.btn_find_card = self.add_button("💳Подбор номера карты", 450, 50, 50, 120)
         self.btn_graph = self.add_button("📊График статистики (поиска коллизий)", 450, 50, 50, 180)
         self.btn_luna = self.add_button("✅Проверка номера карты по алгоритму Луна", 450, 50, 50, 240)
         self.btn_exit = self.add_button("📛Выход", 450, 50, 50, 300)
-
-        # события кнопок
         self.btn_find_card.clicked.connect(self.find_card)
         self.btn_graph.clicked.connect(self.graph)
-        self.btn_luna.clicked.connect(self.luna)
+        self.btn_luna.clicked.connect(lambda x: self.card.luna(self.card_number))
         self.btn_exit.clicked.connect(self.close)
-
         self.show()
 
     def add_button(self, name: str, size_x: int, size_y: int, pos_x: int, pos_y: int) -> QPushButton:
@@ -57,71 +52,37 @@ class MainWindow(QMainWindow):
             поиск номера карты с помощью многопроцессорной обработки данных и вывод номера карты на экран
         :return: None
         """
-        start_time = time.time() # время начала поиска
-        dict = self.enum_card_number() # перебор номера карты
+        start_time = time.perf_counter()
+        dict = self.card.enum_card_number()
+        end_time = time.perf_counter()
+        delta = end_time - start_time
         self.card_number = dict['card_number']
         if self.card_number:
             self.info_window = InfoWindow(self, self.card_number, "ВТБ", "Кредитная карта", "Mastercard",
-                                          time.time() - start_time, dict['pools'])
+                                          delta, dict['pools'])
             self.info_window.show()
         else:
-            print('Карта не найдена!')
-
-    def enum_card_number(self) -> dict:
-        """
-            перебор номера карты с помощью многопроцессорной обработки данных и возврат номера карты
-        :return: dict
-        """
-        if self.type == 1:
-            with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as p:
-                for result in p.map(self.check_card_number, tqdm(range(0, 1000000), ncols=120)):
-                    if result:
-                        p.terminate()
-                        return {'card_number': result, 'pools': p._processes}
-            return {'card_number': None, 'pools': p._processes}
-        else:
-            self.pools += 1
-            with multiprocessing.Pool(processes=self.pools) as p:
-                for result in p.map(self.check_card_number, tqdm(range(0, 1000000), ncols=120)):
-                    if result:
-                        p.terminate() # завершение процесса
-                        return {'card_number': result, 'pools': p._processes}
-            return {'card_number': None, 'pools': p._processes}
-
-    @staticmethod
-    def check_card_number(card_number_) -> str:
-        """
-            проверка номера карты на соответствие хешу и бину карты
-        :param card_number_:
-        :return: str
-        """
-        for card_bin in (
-        519998, 529025, 516451, 522327, 522329, 523760, 527652, 528528, 529158, 529460, 529856, 530176, 530429, 531452, \
-        531456, 531855, 531866, 531963, 532465, 534133, 534135, 534299, 510144, 518591, 518640, 540989, 526589, 528154):
-            card_number = f'{card_bin}{card_number_:06d}{"0758"}'
-            if hashlib.sha1(card_number.encode()).hexdigest() == "754a917a9c82f5247412006a5abe1c0eb76e1007":
-                return card_number
-        return None
+            logger.info("Номер карты не найден")
 
     def graph(self) -> None:
         """
             построение графика статистики поиска номера карты
         :return: None
         """
-        self.type = 0
         d = {
             'pools': [],
             'time': []
         }
         for i in range(10):
-            start_time = time.time()
-            dict = self.enum_card_number()
+            start_time = time.perf_counter()
+            self.card.set_cores(i + 1)
+            dict = self.card.enum_card_number()
+            end_time = time.perf_counter()
+            delta = end_time - start_time
             card_number = dict['card_number']
             if card_number:
-                d['pools'].append(dict['pools'])
-                d['time'].append(float(time.time() - start_time))
-        self.type = 1
-        # диаграмма
+                d['pools'].append(i + 1)
+                d['time'].append(float(delta))
         fig = plt.figure(figsize=(30, 5))
         plt.bar(d['pools'], d['time'], color='gold', width=0.05)
         plt.xlabel('Количество процессов')
@@ -129,19 +90,7 @@ class MainWindow(QMainWindow):
         plt.title('График статистики (поиска коллизий)')
         plt.show()
 
-    def luna(self) -> bool:
-        """
-            проверка номера карты по алгоритму Луна
-        :param self:
-        :return: bool
-        """
-        # enter card number
-        card_numbers = [int(digit) for digit in self.card_number][::-1]
-        for i in range(1, len(card_numbers), 2):
-            card_numbers[i] *= 2
-            if card_numbers[i] > 9:
-                card_numbers[i] = card_numbers[i] % 10 + card_numbers[i] // 10
-        return sum(card_numbers) % 10 == 0
+
 
     def exit(self) -> None:
         """
@@ -155,12 +104,12 @@ class InfoWindow(QtWidgets.QDialog):
     """
         класс информационного окна
     """
-    def __init__(self, parent=None, card_number: str = None, bank: str = None, type_card: str = None, payment_system: str = None, start_time: float = None, pools: int = None):
+    def __init__(self, parent=None, card_number: str = None, bank: str = None, type_card: str = None, payment_system: str = None, time: float = None, pools: int = None):
         super(InfoWindow, self).__init__(parent)
         self.setFixedSize(QSize(400, 300))
         self.setWindowTitle("Информационное окно")
         self.label = QLabel(self)
-        self.label.setText(f"Результат поиска номера карты: \nНомер карты: {card_number}\nБанк: {bank}\nТип карты: {type_card}\nПлатежная система: {payment_system}\nВремя поиска: {time.time() - start_time} \nКоличество процессоров: {pools}\n")
+        self.label.setText(f"Результат поиска номера карты: \nНомер карты: {card_number}\nБанк: {bank}\nТип карты: {type_card}\nПлатежная система: {payment_system}\nВремя поиска: {time} \nКоличество процессоров: {pools}\n")
         self.label.move(50, 50)
         self.label.adjustSize()
         self.show()
