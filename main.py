@@ -1,6 +1,6 @@
 import time
 import matplotlib.pyplot as plt
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QLineEdit
 from PyQt6.QtCore import QSize
 from PyQt6 import QtWidgets
 import card
@@ -28,7 +28,7 @@ class MainWindow(QMainWindow):
         self.btn_luna = self.add_button("✅Проверка номера карты по алгоритму Луна", 450, 50, 50, 240)
         self.btn_exit = self.add_button("📛Выход", 450, 50, 50, 300)
         self.btn_find_card.clicked.connect(self.find_card)
-        self.btn_graph.clicked.connect(self.graph)
+        self.btn_graph.clicked.connect(self.set_pools_and_go_to_graph)
         self.btn_luna.clicked.connect(self.luna)
         self.btn_exit.clicked.connect(self.close)
         self.show()
@@ -58,9 +58,9 @@ class MainWindow(QMainWindow):
         delta = end_time - start_time
         self.card_number = dict['card_number']
         if self.card_number:
-            self.info_window = InfoWindow(self, self.card_number, "ВТБ", "Кредитная карта", "Mastercard",
+            info_window = InfoWindow(self, self.card_number, "ВТБ", "Кредитная карта", "Mastercard",
                                           delta, dict['pools'])
-            self.info_window.show()
+            info_window.show()
         else:
             logger.info("Номер карты не найден")
 
@@ -70,11 +70,21 @@ class MainWindow(QMainWindow):
         :return: None
         """
         if self.card.luna(self.card_number):
-            logger.info("Номер карты прошел проверку по алгоритму Луна")
+            info_window = InfoWindow2(self, "Номер карты прошел проверку по алгоритму Луна")
+            info_window.show()
         else:
-            logger.info("Номер карты не прошел проверку по алгоритму Луна")
+            info_window = InfoWindow2(self, "Номер карты не прошел проверку по алгоритму Луна")
+            info_window.show()
 
-    def graph(self) -> None:
+    def set_pools_and_go_to_graph(self):
+        """
+            установка количества процессов и переход к графику
+        :return: None
+        """
+        input_window = InputWindow(self)
+        input_window.show()
+
+    def graph(self, cores: int) -> None:
         """
             построение графика статистики поиска номера карты
         :return: None
@@ -83,7 +93,7 @@ class MainWindow(QMainWindow):
             'pools': [],
             'time': []
         }
-        for i in range(10):
+        for i in range(cores):
             start_time = time.perf_counter()
             self.card.set_cores(i + 1)
             dict = self.card.enum_card_number()
@@ -100,8 +110,6 @@ class MainWindow(QMainWindow):
         plt.title('График статистики (поиска коллизий)')
         plt.show()
 
-
-
     def exit(self) -> None:
         """
             закрытие программы
@@ -112,7 +120,7 @@ class MainWindow(QMainWindow):
 
 class InfoWindow(QtWidgets.QDialog):
     """
-        класс информационного окна
+        класс информационного окна для номера карты
     """
     def __init__(self, parent=None, card_number: str = None, bank: str = None, type_card: str = None, payment_system: str = None, time: float = None, pools: int = None):
         super(InfoWindow, self).__init__(parent)
@@ -123,6 +131,51 @@ class InfoWindow(QtWidgets.QDialog):
         self.label.move(50, 50)
         self.label.adjustSize()
         self.show()
+
+
+class InfoWindow2(QtWidgets.QDialog):
+    """
+        класс информационного окно
+    """
+    def __init__(self, parent=None, message: str = None):
+        super(InfoWindow2, self).__init__(parent)
+        self.setFixedSize(QSize(400, 300))
+        self.setWindowTitle("Информационное окно")
+        self.label = QLabel(self)
+        self.label.setText(f"{message}")
+        self.label.move(50, 50)
+        self.label.adjustSize()
+        self.show()
+
+
+class InputWindow(QtWidgets.QDialog):
+    """
+        класс окна ввода количества процессоров
+    """
+    def __init__(self, parent=None):
+        super(InputWindow, self).__init__(parent)
+        self.setFixedSize(QSize(400, 300))
+        self.setWindowTitle("Ввод кол-ва процессоров")
+        self.label = QLabel(self)
+        self.label.setText("Введите количество процессоров:")
+        self.label.move(50, 50)
+        self.label.adjustSize()
+        self.textbox = QLineEdit(self)
+        self.textbox.move(50, 100)
+        self.textbox.resize(280, 40)
+        self.button = QPushButton('Ввод', self)
+        self.button.move(50, 200)
+        self.button.clicked.connect(self.on_click)
+        self.show()
+
+    def on_click(self) -> None:
+        """
+            обработка нажатия кнопки
+        :return: None
+        """
+        self.parent().card.set_cores(int(self.textbox.text()))
+        self.parent().graph(int(self.textbox.text()))
+        self.close()
 
 if __name__ == '__main__':
     app = QApplication([])

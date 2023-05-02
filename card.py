@@ -17,7 +17,7 @@ LATER_NUM = "0758"
 
 class Card:
     def __init__(self) -> None:
-        self.pools = 0
+        self.pools = 10
         self.cores = multiprocessing.cpu_count()
 
     def set_cores(self, cores: int) -> None:
