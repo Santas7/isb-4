@@ -1,6 +1,6 @@
 import time
 import matplotlib.pyplot as plt
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QLineEdit, QMessageBox, QProgressBar
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QLineEdit, QMessageBox
 from PyQt6.QtCore import QSize
 from PyQt6 import QtWidgets
 import card
@@ -24,12 +24,12 @@ class MainWindow(QMainWindow):
         self.card = card.Card()
         self.card_number = None
 
-        self.progress = QProgressBar(self)
+        """self.progress = QProgressBar(self)
         self.progress.setGeometry(50, 92, 450, 20)
         self.progress.setMaximum(100)
         self.progress.setMinimum(0)
         self.progress.setValue(0)
-        self.progress.show()
+        self.progress.show()"""
 
         self.btn_find_card = self.add_button("💳Подбор номера карты", 450, 50, 50, 120)
         self.btn_graph = self.add_button("📊График статистики (поиска коллизий)", 450, 50, 50, 180)
