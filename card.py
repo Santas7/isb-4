@@ -1,6 +1,7 @@
 import multiprocessing
 import hashlib
 import logging
+from tqdm import tqdm
 
 
 logger = logging.getLogger()
@@ -47,7 +48,7 @@ class Card:
                 :return: dict
                 """
         with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as p:
-            for result in p.map(self.check_card_number, range(1000000)):
+            for result in p.map(self.check_card_number, tqdm(range(1000000), ncols=120)):
                 if result:
                     p.terminate()
                     return {'card_number': result, 'pools': p._processes}
