@@ -1,7 +1,10 @@
+import functools
+import multiprocessing
 import time
 import matplotlib.pyplot as plt
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QLineEdit, QMessageBox
-from PyQt6.QtCore import QSize
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QLineEdit, QMessageBox, QProgressBar, \
+    QFileDialog
+from PyQt6.QtCore import QSize, QThread, pyqtSignal
 from PyQt6 import QtWidgets
 import card
 import logging
@@ -9,6 +12,87 @@ import logging
 
 logger = logging.getLogger()
 logger.setLevel('INFO')
+# создаем обработчик, который записывает лог в файл
+file_handler = logging.FileHandler('log_file.log')
+file_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+# добавляем обработчик к логгеру
+logger.addHandler(file_handler)
+
+
+class Worker(QThread):
+    progress_signal = pyqtSignal(int)
+    result_signal = pyqtSignal(dict)
+
+    def __init__(self, card, options):
+        super().__init__()
+        self.card = card
+        self.options = options
+
+    def run(self):
+        """
+            запуск многопоточного поиска номера карты
+            check_card_number_with_options - частично примененная функция check_card_number с фиксированными options
+            functools - библиотека для частичного применения функции
+        :return:
+        """
+        result = {'card_number': None, 'pools': 0}
+        check_card_number_with_options = functools.partial(self.card.check_card_number, options=self.options)
+        with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as p:
+            for status_value, card_result in enumerate(
+                    p.imap_unordered(check_card_number_with_options, range(99999, 1000000))):
+                if card_result:
+                    self.update_prog_bar_finish()
+                    p.terminate()
+                    result = {'card_number': card_result, 'pools': p._processes}
+                    break
+                self.progress_signal.emit(status_value)
+            else:
+                self.progress_signal.emit(100)
+        self.result_signal.emit(result)
+
+    def update_prog_bar_finish(self):
+        self.progress_signal.emit(100)
+
+
+class GraphWorker(QThread):
+    progress_signal = pyqtSignal(int)
+    result_signal = pyqtSignal(list)
+
+    def __init__(self, card, cores, options):
+        super().__init__()
+        self.card = card
+        self.cores = cores
+        self.options = options
+
+    def run(self):
+        """
+            запуск многопоточного поиска номера карты с разным количеством ядер
+        :return:
+        """
+        d = {'pools': [], 'time': []}
+        for i in range(self.cores):
+            start_time = time.perf_counter()
+            self.card.cores = i + 1
+            check_card_number_with_options = functools.partial(self.card.check_card_number, options=self.options)
+            with multiprocessing.Pool(processes=self.card.cores) as p:
+                for status_value, card_result in enumerate(
+                        p.imap_unordered(check_card_number_with_options, range(99999, 1000000))):
+                    if card_result:
+                        self.progress_signal.emit(100)
+                        p.terminate()
+                        result = {'card_number': card_result, 'pools': p._processes}
+                    self.progress_signal.emit(status_value)
+                else:
+                    self.progress_signal.emit(100)
+            self.result_signal.emit(result)
+            end_time = time.perf_counter()
+            delta = end_time - start_time
+            d['pools'].append(i + 1)
+            d['time'].append(float(delta))
+        self.progress_signal.emit(100)
+        self.result_signal.emit(d)
 
 
 class MainWindow(QMainWindow):
@@ -23,13 +107,23 @@ class MainWindow(QMainWindow):
         self.label_title.adjustSize()
         self.card = card.Card()
         self.card_number = None
+        while True:
+            self.file_name = QFileDialog.getOpenFileName(self, 'Выбрать файл с характеристиками карты', '')[0]
+            if self.file_name:
+                try:
+                    with open(self.file_name, 'r') as f:
+                        self.options_card = eval(f.read())
+                    logger.info(f'Файл {self.file_name} успешно загружен')
+                    break
+                except Exception as e:
+                    logger.error(e)
 
-        """self.progress = QProgressBar(self)
+        self.progress = QProgressBar(self)
         self.progress.setGeometry(50, 92, 450, 20)
         self.progress.setMaximum(100)
         self.progress.setMinimum(0)
         self.progress.setValue(0)
-        self.progress.show()"""
+        self.progress.hide()
 
         self.btn_find_card = self.add_button("💳Подбор номера карты", 450, 50, 50, 120)
         self.btn_graph = self.add_button("📊График статистики (поиска коллизий)", 450, 50, 50, 180)
@@ -55,23 +149,40 @@ class MainWindow(QMainWindow):
         button.move(pos_x, pos_y)
         return button
 
-    def find_card(self) -> None:
+    def update_prog_bar(self, value) -> None:
+        percentage = int((value / (1000000 - 99999)) * 100)
+        self.progress.setValue(percentage)
+
+    def prepare_prog_bar(self) -> None:
         """
-            поиск номера карты с помощью многопроцессорной обработки данных и вывод номера карты на экран
+            подготовка прогресс бара
         :return: None
         """
-        start_time = time.perf_counter()
-        dict = self.card.enum_card_number()
-        end_time = time.perf_counter()
-        delta = end_time - start_time
-        self.card_number = dict['card_number']
-        if self.card_number:
+        self.progress.setValue(0)
+        self.progress.show()
+
+    def find_card(self) -> None:
+        """
+            Поиск номера карты
+        :return:
+        """
+        self.prepare_prog_bar()
+        self.worker = Worker(self.card, self.options_card)
+        self.worker.progress_signal.connect(self.update_prog_bar)
+        self.worker.result_signal.connect(self.show_result)
+        self.worker.start()
+
+    def show_result(self, result) -> None:
+        card_number = result['card_number']
+        pools = result['pools']
+        if card_number:
             dlg = QMessageBox(self)
             dlg.setWindowTitle("Информационное окно")
-            dlg.setText(f"Результат поиска номера карты: \nНомер карты: {self.card_number}\nБанк: ВТБ\nТип карты: Кредитная\nПлатежная система: VISA/MasterCard\nВремя поиска: {delta}s \nКоличество процессоров: {dict['pools']}\n")
+            dlg.setText(f"Результат поиска номера карты: \nНомер карты: {card_number}\nБанк: ВТБ\nТип карты: Кредитная\nПлатежная система: VISA/MasterCard\nКоличество процессоров: {pools}\n")
             button = dlg.exec()
             if button == QMessageBox.StandardButton.Ok:
                 print("OK!")
+            logger.info(f'Поиск номера карты завершен успешно! Номер карты: {card_number}')
         else:
             dlg = QMessageBox(self)
             dlg.setWindowTitle("Информационное окно")
@@ -79,6 +190,9 @@ class MainWindow(QMainWindow):
             button = dlg.exec()
             if button == QMessageBox.StandardButton.Ok:
                 print("OK!")
+            logger.info(f'Поиск номера карты завершен успешно! Карта не найдена!')
+        self.worker.quit()
+        self.worker.wait()
 
     def luna(self) -> None:
         """
@@ -92,6 +206,7 @@ class MainWindow(QMainWindow):
             button = dlg.exec()
             if button == QMessageBox.StandardButton.Ok:
                 print("OK!")
+            logger.info(f'Номер карты прошел проверку по алгоритму Луна')
         else:
             dlg = QMessageBox(self)
             dlg.setWindowTitle("Информационное окно")
@@ -99,8 +214,9 @@ class MainWindow(QMainWindow):
             button = dlg.exec()
             if button == QMessageBox.StandardButton.Ok:
                 print("OK!")
+            logger.info(f'Номер карты не прошел проверку по алгоритму Луна')
 
-    def set_pools_and_go_to_graph(self):
+    def set_pools_and_go_to_graph(self) -> None:
         """
             установка количества процессов и переход к графику
         :return: None
@@ -110,29 +226,32 @@ class MainWindow(QMainWindow):
 
     def graph(self, cores: int) -> None:
         """
-            построение графика статистики поиска номера карты
+            построение графика
+        :param cores:
+        :return:
+        """
+        self.prepare_prog_bar()
+        self.graph_worker = GraphWorker(self.card, cores, self.options_card)
+        self.graph_worker.progress_signal.connect(self.update_prog_bar)
+        self.graph_worker.result_signal.connect(self.show_graph)
+        self.graph_worker.start()
+
+    def show_graph(self, data) -> None:
+        """
+            отображение графика
+        :param data:
         :return: None
         """
-        d = {
-            'pools': [],
-            'time': []
-        }
-        for i in range(cores):
-            start_time = time.perf_counter()
-            self.card.cores = i + 1
-            dict = self.card.enum_card_number()
-            end_time = time.perf_counter()
-            delta = end_time - start_time
-            card_number = dict['card_number']
-            if card_number:
-                d['pools'].append(i + 1)
-                d['time'].append(float(delta))
         fig = plt.figure(figsize=(30, 5))
-        plt.bar(d['pools'], d['time'], color='gold', width=0.05)
+        plt.bar(data['pools'], data['time'], color='gold', width=0.05)
         plt.xlabel('Количество процессов')
         plt.ylabel('Время поиска')
         plt.title('График статистики (поиска коллизий)')
         plt.show()
+        logger.info(f'Построение графика завершено успешно!')
+        self.card.cores = multiprocessing.cpu_count()
+        self.graph_worker.quit()
+        self.graph_worker.wait()
 
     def exit(self) -> None:
         """
@@ -167,7 +286,7 @@ class InputWindow(QtWidgets.QDialog):
             обработка нажатия кнопки
         :return: None
         """
-        self.parent().card.set_cores(int(self.textbox.text()))
+        self.parent().card.cores = int(self.textbox.text())
         self.parent().graph(int(self.textbox.text()))
         self.close()
 
