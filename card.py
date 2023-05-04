@@ -9,16 +9,16 @@ class Card:
         self.cores = multiprocessing.cpu_count()
 
     @staticmethod
-    def check_card_number(card_number_, options) -> str:
+    def check_card_number(card_number, options) -> str:
         """
             проверка номера карты на соответствие хешу и бину карты
         :return: str
         """
         for card_bin in options['BINS']:
-            card_number = f'{card_bin}{card_number_:06d}{options["LATER_NUM"]}'
+            card_number = f'{card_bin}{card_number:06d}{options["LATER_NUM"]}'
             if hashlib.sha1(card_number.encode()).hexdigest() == options["HASH"]:
                 return card_number
-        main.logger.info(f'Номер карты: {card_number_} - не соответствует хешу')
+        main.logger.info(f'Номер карты: {card_number} - не соответствует хешу')
         return ""
 
     def luna(self, card_number) -> bool:

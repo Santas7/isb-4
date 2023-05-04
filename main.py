@@ -12,12 +12,10 @@ import logging
 
 logger = logging.getLogger()
 logger.setLevel('INFO')
-# создаем обработчик, который записывает лог в файл
 file_handler = logging.FileHandler('log_file.log')
 file_handler.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(formatter)
-# добавляем обработчик к логгеру
 logger.addHandler(file_handler)
 
 
@@ -117,14 +115,12 @@ class MainWindow(QMainWindow):
                     break
                 except Exception as e:
                     logger.error(e)
-
         self.progress = QProgressBar(self)
         self.progress.setGeometry(50, 92, 450, 20)
         self.progress.setMaximum(100)
         self.progress.setMinimum(0)
         self.progress.setValue(0)
         self.progress.hide()
-
         self.btn_find_card = self.add_button("💳Подбор номера карты", 450, 50, 50, 120)
         self.btn_graph = self.add_button("📊График статистики (поиска коллизий)", 450, 50, 50, 180)
         self.btn_luna = self.add_button("✅Проверка номера карты по алгоритму Луна", 450, 50, 50, 240)
